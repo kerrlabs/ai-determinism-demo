@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Determinism Demo</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>Pointing AI at data vs. letting AI write the query</h1>
+    <p class="subtitle">
+      Same question. Same data. Watch Agent&nbsp;A (the model computes the
+      answer) <em>scatter</em>, while Agent&nbsp;B (the model writes SQL, the
+      engine computes) <em>locks onto the truth</em>.
+    </p>
+  </header>
+
+  <section class="controls">
+    <label>
+      Question
+      <select id="question"></select>
+    </label>
+    <label>
+      Runs (N)
+      <input id="runs" type="number" min="1" max="200" value="20" />
+    </label>
+    <button id="run-btn">Run comparison</button>
+    <span id="provider-badge" class="badge"></span>
+  </section>
+
+  <section class="lanes">
+    <!-- Agent A -->
+    <div class="lane" id="lane-a">
+      <div class="lane-head">
+        <h2>Agent A — AI reads the data</h2>
+        <span class="tag tag-danger">non-deterministic</span>
+      </div>
+      <p class="lane-desc">Raw rows go into the prompt; the model does the math.</p>
+      <div class="plot" id="plot-a">
+        <div class="truth-line" id="truth-a"><span>truth</span></div>
+      </div>
+      <div class="stats" id="stats-a">
+        <div><span class="k">distinct answers</span><span class="v" data-f="distinct">–</span></div>
+        <div><span class="k">% correct</span><span class="v" data-f="correct">–</span></div>
+        <div><span class="k">mean</span><span class="v" data-f="mean">–</span></div>
+        <div><span class="k">spread (σ)</span><span class="v" data-f="stdev">–</span></div>
+      </div>
+    </div>
+
+    <!-- Agent B -->
+    <div class="lane" id="lane-b">
+      <div class="lane-head">
+        <h2>Agent B — AI writes the query</h2>
+        <span class="tag tag-ok">deterministic</span>
+      </div>
+      <p class="lane-desc">The model emits SQL; SQLite computes the exact answer.</p>
+      <div class="plot" id="plot-b">
+        <div class="truth-line" id="truth-b"><span>truth</span></div>
+      </div>
+      <div class="stats" id="stats-b">
+        <div><span class="k">distinct answers</span><span class="v" data-f="distinct">–</span></div>
+        <div><span class="k">% correct</span><span class="v" data-f="correct">–</span></div>
+        <div><span class="k">mean</span><span class="v" data-f="mean">–</span></div>
+        <div><span class="k">spread (σ)</span><span class="v" data-f="stdev">–</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="verdict" class="verdict hidden"></section>
+
+  <footer>
+    <span id="truth-readout"></span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

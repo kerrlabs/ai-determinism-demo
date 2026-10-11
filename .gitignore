@@ -1,0 +1,18 @@
+# Secrets / env
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Generated data artifacts
+data/*.db
+data/*.csv
+
+# OS
+.DS_Store
+Thumbs.db
