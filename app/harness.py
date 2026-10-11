@@ -14,7 +14,7 @@ from typing import Any
 
 from app.agents import AgentResult, run_agent_a, run_agent_b
 from app.config import settings
-from app.providers import LLMProvider, get_provider
+from app.providers import LLMProvider, MockProvider, get_provider
 from app.questions import Question, QUESTIONS_BY_ID, compute_truth
 
 # Relative tolerance for calling an answer "correct" (0.5%).
@@ -39,6 +39,7 @@ class RunEvent:
     correct: bool
     error: str | None = None
     sql: str | None = None
+    detail: str | None = None  # Agent A: reasoning text; Agent B: unused (sql holds it)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -93,13 +94,18 @@ def stream_question(
     truth = compute_truth(question)
     yield {"type": "truth", "value": truth, "unit": question.unit}
 
+    # The truth hint is ONLY for the offline MockProvider's simulation. A real
+    # provider must never see it, or it would just read the answer off the
+    # prompt instead of computing (and the demo would be meaningless).
+    hint = truth if isinstance(provider, MockProvider) else None
+
     a_events: list[RunEvent] = []
     b_events: list[RunEvent] = []
 
     for i in range(runs):
         # Agent A (non-deterministic)
         a: AgentResult = run_agent_a(
-            provider, question, settings.agent_a_temperature, truth_hint=truth
+            provider, question, settings.agent_a_temperature, truth_hint=hint
         )
         a_evt = RunEvent(
             agent="A",
@@ -107,12 +113,18 @@ def stream_question(
             answer=a.answer,
             correct=is_correct(a.answer, truth),
             error=a.error,
+            detail=(a.raw[:1200] if a.raw else None),
         )
         a_events.append(a_evt)
         yield {"type": "run", **a_evt.to_dict()}
 
         # Agent B (deterministic)
-        b: AgentResult = run_agent_b(provider, question, settings.agent_b_temperature)
+        b: AgentResult = run_agent_b(
+            provider,
+            question,
+            settings.agent_b_temperature,
+            mock_sql_hint=isinstance(provider, MockProvider),
+        )
         b_evt = RunEvent(
             agent="B",
             run_index=i,

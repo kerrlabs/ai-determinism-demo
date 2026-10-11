@@ -73,7 +73,7 @@ class BedrockProvider(LLMProvider):
     def complete(self, system: str, user: str, temperature: float) -> str:
         body = {
             "anthropic_version": "bedrock-2023-05-31",
-            "max_tokens": 1024,
+            "max_tokens": 4096,
             "temperature": temperature,
             "system": system,
             "messages": [{"role": "user", "content": [{"type": "text", "text": user}]}],

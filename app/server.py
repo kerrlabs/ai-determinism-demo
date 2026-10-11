@@ -52,6 +52,7 @@ def get_questions() -> list[dict[str, Any]]:
             "difficulty": q.difficulty,
             "prompt": q.prompt,
             "unit": q.unit,
+            "formula": q.formula,
         }
         for q in QUESTIONS
     ]

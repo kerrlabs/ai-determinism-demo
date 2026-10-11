@@ -25,6 +25,7 @@ class Question:
     prompt: str
     truth_sql: str
     unit: str  # "currency", "count", or "ratio" -- used for display/scoring
+    formula: str  # Excel-style formula a human analyst would write (teaching aid)
 
 
 QUESTIONS: list[Question] = [
@@ -34,6 +35,7 @@ QUESTIONS: list[Question] = [
         prompt="How many orders are from the West region?",
         truth_sql="SELECT COUNT(*) AS answer FROM sales WHERE region = 'West';",
         unit="count",
+        formula='=COUNTIF(region, "West")',
     ),
     Question(
         id="q2_revenue_west_q3",
@@ -45,6 +47,7 @@ QUESTIONS: list[Question] = [
             "WHERE region = 'West' AND quarter = 'Q3';"
         ),
         unit="currency",
+        formula='=SUMIFS(revenue, region, "West", quarter, "Q3")',
     ),
     Question(
         id="q3_avg_electronics_order",
@@ -56,6 +59,7 @@ QUESTIONS: list[Question] = [
             "WHERE category = 'Electronics';"
         ),
         unit="currency",
+        formula='=AVERAGEIF(category, "Electronics", revenue)',
     ),
     Question(
         id="q4_units_furniture_east_q4",
@@ -67,6 +71,7 @@ QUESTIONS: list[Question] = [
             "WHERE category = 'Furniture' AND region = 'East' AND quarter = 'Q4';"
         ),
         unit="count",
+        formula='=SUMIFS(quantity, category, "Furniture", region, "East", quarter, "Q4")',
     ),
     Question(
         id="q5_west_share_of_total_revenue",
@@ -79,6 +84,7 @@ QUESTIONS: list[Question] = [
             "  / (SELECT SUM(revenue) FROM sales), 2) AS answer;"
         ),
         unit="ratio",
+        formula='=SUMIF(region, "West", revenue) / SUM(revenue) * 100',
     ),
 ]
 

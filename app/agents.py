@@ -68,7 +68,15 @@ def _execute_sql(sql: str) -> float | None:
         conn.close()
     if row is None or row[0] is None:
         return None
-    return float(row[0])
+    value = row[0]
+    if isinstance(value, (int, float)):
+        return float(value)
+    # The model's SQL sometimes formats the result as text, e.g.
+    # "$227,421.36", "227421.36 dollars", or "27.13%". The engine still
+    # computed the correct number; extract the numeric portion from the text.
+    text = str(value).replace(",", "")
+    m = re.search(r"-?\d+(?:\.\d+)?", text)
+    return float(m.group(0)) if m else None
 
 
 # ---------------------------------------------------------------------------
@@ -76,24 +84,59 @@ def _execute_sql(sql: str) -> float | None:
 # ---------------------------------------------------------------------------
 
 
+_NUM = r"-?\d[\d,]*(?:\.\d+)?"
+
+
+def _to_float(s: str) -> float:
+    return float(s.replace(",", "").replace("$", "").rstrip("."))
+
+
 def _parse_number_from_json(text: str) -> float | None:
-    """Pull {"answer": <number>} out of the model's reply, tolerating noise."""
-    # Try strict JSON first.
+    """Extract the model's final numeric answer, tolerating prose and noise.
+
+    Real models (e.g. Claude) often ignore "JSON only" instructions and show
+    their work, ending with a stated total. Grabbing the *first* number is
+    wrong -- it catches stray digits like the "3" in "Q3". So we prefer, in
+    order: an explicit FINAL ANSWER line, strict JSON, an "answer": value,
+    other answer/total phrasing, a $-tagged figure, and finally the LAST
+    number in the text (the conclusion), never the first.
+    """
+    if not text:
+        return None
+
+    # 1. The explicit contract: "FINAL ANSWER: <number>" (last one wins).
+    fa = re.findall(r"FINAL ANSWER:\s*\$?\s*(" + _NUM + r")", text, re.IGNORECASE)
+    if fa:
+        return _to_float(fa[-1])
+
+    # 2. Strict JSON object.
     try:
         obj = json.loads(text)
         if isinstance(obj, dict) and "answer" in obj:
-            return float(obj["answer"])
+            return _to_float(str(obj["answer"]))
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
 
-    # Fall back: find the first JSON-looking "answer": number.
-    m = re.search(r'"answer"\s*:\s*(-?\d+(?:\.\d+)?)', text)
-    if m:
-        return float(m.group(1))
+    # 3. A JSON-looking "answer": <number> anywhere (last wins).
+    matches = re.findall(r'"answer"\s*:\s*(' + _NUM + r")", text)
+    if matches:
+        return _to_float(matches[-1])
 
-    # Last resort: first standalone number in the text.
-    m = re.search(r"-?\d+(?:\.\d+)?", text.replace(",", ""))
-    return float(m.group(0)) if m else None
+    # 4. "total ... is $X" / "answer is X" phrasing (last wins).
+    marker = re.findall(
+        r"(?:answer|total)\b[^\d$]*\$?\s*(" + _NUM + r")", text, re.IGNORECASE
+    )
+    if marker:
+        return _to_float(marker[-1])
+
+    # 5. Last $-prefixed figure.
+    dollars = re.findall(r"\$\s*(" + _NUM + r")", text)
+    if dollars:
+        return _to_float(dollars[-1])
+
+    # 6. Last resort: the LAST standalone number (the conclusion), not first.
+    nums = re.findall(_NUM, text)
+    return _to_float(nums[-1]) if nums else None
 
 
 def _extract_sql(text: str) -> str:
@@ -126,8 +169,11 @@ def _is_safe_select(sql: str) -> bool:
 AGENT_A_SYSTEM = (
     "You are a data analyst. You will be given the FULL contents of a sales "
     "table as CSV, followed by a question. Compute the answer yourself from "
-    "the rows. Respond with ONLY a JSON object of the form "
-    '{"answer": <number>} and nothing else. Do not show your work.'
+    "the rows. Keep your working BRIEF: do NOT transcribe or list individual "
+    "rows; reason about totals directly. You MUST end your reply with a final "
+    "line in exactly this format:\n"
+    "FINAL ANSWER: <number>\n"
+    "where <number> is a plain number (no currency symbol, no commas)."
 )
 
 
@@ -177,12 +223,15 @@ def run_agent_b(
     provider: LLMProvider,
     question: Question,
     temperature: float,
+    mock_sql_hint: bool = False,
 ) -> AgentResult:
     """Deterministic agent: model emits SQL, SQLite computes the answer."""
     user = f"Question: {question.prompt}"
-    # For the mock provider only: embed the canonical SQL so the offline
-    # simulation can echo a correct query. Real providers ignore this.
-    user += f"\n\n<<MOCK_SQL:{question.truth_sql}>>"
+    # Embed the canonical SQL ONLY for the offline MockProvider so it can echo
+    # a correct query. Real providers must never see it, or Agent B would be
+    # handed the answer instead of translating the question itself.
+    if mock_sql_hint:
+        user += f"\n\n<<MOCK_SQL:{question.truth_sql}>>"
 
     try:
         raw = provider.complete(AGENT_B_SYSTEM, user, temperature)

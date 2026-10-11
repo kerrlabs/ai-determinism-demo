@@ -10,9 +10,9 @@
   <header>
     <h1>Pointing AI at data vs. letting AI write the query</h1>
     <p class="subtitle">
-      Same question. Same data. Watch Agent&nbsp;A (the model computes the
-      answer) <em>scatter</em>, while Agent&nbsp;B (the model writes SQL, the
-      engine computes) <em>locks onto the truth</em>.
+      Same question. Same data. Agent&nbsp;A (the model computes the answer)
+      <em>scatters</em>; Agent&nbsp;B (the model writes SQL, the engine computes)
+      <em>locks onto the truth</em>. One run populates every view below.
     </p>
   </header>
 
@@ -29,42 +29,176 @@
     <span id="provider-badge" class="badge"></span>
   </section>
 
-  <section class="lanes">
-    <!-- Agent A -->
-    <div class="lane" id="lane-a">
-      <div class="lane-head">
-        <h2>Agent A — AI reads the data</h2>
-        <span class="tag tag-danger">non-deterministic</span>
-      </div>
-      <p class="lane-desc">Raw rows go into the prompt; the model does the math.</p>
-      <div class="plot" id="plot-a">
-        <div class="truth-line" id="truth-a"><span>truth</span></div>
-      </div>
-      <div class="stats" id="stats-a">
-        <div><span class="k">distinct answers</span><span class="v" data-f="distinct">–</span></div>
-        <div><span class="k">% correct</span><span class="v" data-f="correct">–</span></div>
-        <div><span class="k">mean</span><span class="v" data-f="mean">–</span></div>
-        <div><span class="k">spread (σ)</span><span class="v" data-f="stdev">–</span></div>
-      </div>
-    </div>
+  <!-- View switcher -->
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-view="scatter">Scatter</button>
+    <button class="tab" data-view="distribution">Distribution</button>
+    <button class="tab" data-view="convergence">Convergence</button>
+    <button class="tab" data-view="mechanism">Mechanism</button>
+    <button class="tab" data-view="human">Human vs AI</button>
+    <button class="tab" data-view="scorecard">Scorecard</button>
+  </nav>
 
-    <!-- Agent B -->
-    <div class="lane" id="lane-b">
-      <div class="lane-head">
-        <h2>Agent B — AI writes the query</h2>
-        <span class="tag tag-ok">deterministic</span>
+  <!-- ============================= SCATTER (existing) ============================= -->
+  <section class="view active" data-view="scatter">
+    <p class="view-hint">Each dot is one run placed on an answer axis centered on the ground truth. Green = correct, red = wrong.</p>
+    <div class="lanes">
+      <div class="lane" id="lane-a">
+        <div class="lane-head">
+          <h2>Agent A — AI reads the data</h2>
+          <span class="tag tag-danger">non-deterministic</span>
+        </div>
+        <p class="lane-desc">Raw rows go into the prompt; the model does the math.</p>
+        <div class="plot" id="plot-a">
+          <div class="truth-line" id="truth-a"><span>truth</span></div>
+        </div>
+        <div class="stats" id="stats-a">
+          <div><span class="k">distinct answers</span><span class="v" data-f="distinct">–</span></div>
+          <div><span class="k">% correct</span><span class="v" data-f="correct">–</span></div>
+          <div><span class="k">mean</span><span class="v" data-f="mean">–</span></div>
+          <div><span class="k">spread (σ)</span><span class="v" data-f="stdev">–</span></div>
+        </div>
       </div>
-      <p class="lane-desc">The model emits SQL; SQLite computes the exact answer.</p>
-      <div class="plot" id="plot-b">
-        <div class="truth-line" id="truth-b"><span>truth</span></div>
-      </div>
-      <div class="stats" id="stats-b">
-        <div><span class="k">distinct answers</span><span class="v" data-f="distinct">–</span></div>
-        <div><span class="k">% correct</span><span class="v" data-f="correct">–</span></div>
-        <div><span class="k">mean</span><span class="v" data-f="mean">–</span></div>
-        <div><span class="k">spread (σ)</span><span class="v" data-f="stdev">–</span></div>
+      <div class="lane" id="lane-b">
+        <div class="lane-head">
+          <h2>Agent B — AI writes the query</h2>
+          <span class="tag tag-ok">deterministic</span>
+        </div>
+        <p class="lane-desc">The model emits SQL; SQLite computes the exact answer.</p>
+        <div class="plot" id="plot-b">
+          <div class="truth-line" id="truth-b"><span>truth</span></div>
+        </div>
+        <div class="stats" id="stats-b">
+          <div><span class="k">distinct answers</span><span class="v" data-f="distinct">–</span></div>
+          <div><span class="k">% correct</span><span class="v" data-f="correct">–</span></div>
+          <div><span class="k">mean</span><span class="v" data-f="mean">–</span></div>
+          <div><span class="k">spread (σ)</span><span class="v" data-f="stdev">–</span></div>
+        </div>
       </div>
     </div>
+  </section>
+
+  <!-- ============================= DISTRIBUTION ============================= -->
+  <section class="view" data-view="distribution">
+    <p class="view-hint">Histogram of answers as runs accumulate. Agent&nbsp;A spreads into a distribution; Agent&nbsp;B stacks into a single bar on the truth.</p>
+    <div class="lanes">
+      <div class="lane">
+        <div class="lane-head"><h2>Agent A</h2><span class="tag tag-danger">non-deterministic</span></div>
+        <canvas class="chart" id="hist-a" width="520" height="260"></canvas>
+      </div>
+      <div class="lane">
+        <div class="lane-head"><h2>Agent B</h2><span class="tag tag-ok">deterministic</span></div>
+        <canvas class="chart" id="hist-b" width="520" height="260"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= CONVERGENCE ============================= -->
+  <section class="view" data-view="convergence">
+    <p class="view-hint">
+      Running average after each run. The common intuition is "average several AI
+      answers and it'll be right" — watch Agent&nbsp;A's mean settle on a
+      <em>wrong</em> value while Agent&nbsp;B is exact from run&nbsp;1.
+    </p>
+    <div class="lane" style="max-width:1000px;margin:0 auto;">
+      <canvas class="chart" id="conv" width="960" height="340"></canvas>
+      <div class="legend">
+        <span><i class="sw sw-a"></i> Agent A running mean</span>
+        <span><i class="sw sw-b"></i> Agent B running mean</span>
+        <span><i class="sw sw-t"></i> ground truth</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= MECHANISM ============================= -->
+  <section class="view" data-view="mechanism">
+    <p class="view-hint">
+      The <em>why</em>: Agent&nbsp;A reasons in prose over 2000 rows (fuzzy mental
+      math); Agent&nbsp;B emits an auditable SQL query the engine runs. Note how
+      Agent&nbsp;B's SQL can vary wording yet always returns the same number.
+    </p>
+    <div class="mech-head">
+      <div>Agent A — reasoning</div>
+      <div>Agent B — generated SQL → engine result</div>
+    </div>
+    <div class="mech-rows" id="mech-rows"></div>
+  </section>
+
+  <!-- ============================= HUMAN vs AI ============================= -->
+  <section class="view" data-view="human">
+    <p class="view-hint">
+      It isn't "humans vs. AI" — it's <em>method vs. method</em>. The same person
+      is unreliable or exact depending on whether they use a tool. The AI mirrors
+      whichever method it's set up to use.
+    </p>
+    <div class="hvai">
+      <!-- Column 1: human in a hurry -->
+      <div class="hvai-col hvai-bad">
+        <div class="hvai-icon">🤔</div>
+        <h3>Human, in a hurry</h3>
+        <p class="hvai-method">Glances at the 2000-row sheet and adds it up <strong>in their head</strong>.</p>
+        <div class="hvai-answer" id="hv-hurry-ans">—</div>
+        <p class="hvai-why">
+          Fast and confident, but <strong>guessing</strong>. Ask twice, get two
+          different numbers. No record of how they got there.
+        </p>
+      </div>
+
+      <!-- Column 2: human analyst -->
+      <div class="hvai-col hvai-good">
+        <div class="hvai-icon">🧮</div>
+        <h3>Human analyst</h3>
+        <p class="hvai-method">Opens the spreadsheet and writes a <strong>formula</strong>, letting the sheet do the math:</p>
+        <div class="hvai-formula" id="hv-formula">—</div>
+        <div class="hvai-answer correct" id="hv-analyst-ans">—</div>
+        <p class="hvai-why">
+          The <strong>tool</strong> computes, not the person. Same formula → same
+          answer, every time — and anyone can check the work.
+        </p>
+      </div>
+
+      <!-- Column 3: the AI mirror -->
+      <div class="hvai-col hvai-mirror">
+        <div class="hvai-icon">🤖</div>
+        <h3>What the AI did</h3>
+        <div class="hvai-mirror-block">
+          <div class="hvai-mirror-label tag tag-danger">Agent A = the hurried human</div>
+          <p class="hvai-method">Read the raw data and did the math itself.</p>
+          <div class="hvai-answer" id="hv-ai-a">—</div>
+          <div class="hvai-sub" id="hv-ai-a-sub"></div>
+        </div>
+        <div class="hvai-mirror-block">
+          <div class="hvai-mirror-label tag tag-ok">Agent B = the analyst</div>
+          <p class="hvai-method">Wrote the query and let the engine compute.</p>
+          <div class="hvai-answer correct" id="hv-ai-b">—</div>
+          <div class="hvai-sub" id="hv-ai-b-sub"></div>
+        </div>
+      </div>
+    </div>
+    <p class="hvai-foot">
+      Ground truth: <strong id="hv-truth">—</strong>. The human columns are
+      illustrative; the AI columns are real results from this run.
+    </p>
+  </section>
+
+  <!-- ============================= SCORECARD ============================= -->
+  <section class="view" data-view="scorecard">
+    <p class="view-hint">Summary verdict and the real-world cost of a wrong answer.</p>
+    <table class="scorecard" id="scorecard">
+      <thead>
+        <tr><th></th><th>Agent A — reads data</th><th>Agent B — writes query</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>distinct answers</td><td data-c="A" data-f="distinct">–</td><td data-c="B" data-f="distinct">–</td></tr>
+        <tr><td>% correct</td><td data-c="A" data-f="correct">–</td><td data-c="B" data-f="correct">–</td></tr>
+        <tr><td>mean</td><td data-c="A" data-f="mean">–</td><td data-c="B" data-f="mean">–</td></tr>
+        <tr><td>spread (σ)</td><td data-c="A" data-f="stdev">–</td><td data-c="B" data-f="stdev">–</td></tr>
+        <tr><td>range (min–max)</td><td data-c="A" data-f="range">–</td><td data-c="B" data-f="range">–</td></tr>
+        <tr><td>reproducible?</td><td data-c="A" data-f="repro">–</td><td data-c="B" data-f="repro">–</td></tr>
+        <tr><td>auditable?</td><td data-c="A" data-f="audit">–</td><td data-c="B" data-f="audit">–</td></tr>
+      </tbody>
+    </table>
+    <div class="cost" id="cost"></div>
   </section>
 
   <section id="verdict" class="verdict hidden"></section>
