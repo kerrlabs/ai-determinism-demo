@@ -29,7 +29,12 @@ from app.questions import QUESTIONS, QUESTIONS_BY_ID
 
 app = FastAPI(title="AI Determinism Demo")
 
-STATIC_DIR = Path(__file__).resolve().parent.parent / "web"
+# Prefer the React build (frontend-dist) when present; otherwise fall back to
+# the original vanilla-JS UI in web/. This is the only change needed to serve
+# the redesigned frontend — all API logic is untouched.
+_ROOT = Path(__file__).resolve().parent.parent
+_REACT_DIR = _ROOT / "frontend-dist"
+STATIC_DIR = _REACT_DIR if (_REACT_DIR / "index.html").exists() else (_ROOT / "web")
 
 
 @app.get("/api/config")
@@ -111,5 +116,11 @@ def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
-# Serve CSS/JS and any other static assets.
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+# Legacy vanilla-JS assets (only present when STATIC_DIR == web/).
+if (STATIC_DIR / "app.js").exists():
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Serve the built SPA (and its /assets/*) at the root. Declared AFTER all /api
+# routes, which FastAPI matches first, so the API is unaffected. html=True
+# returns index.html for unknown paths (SPA-friendly).
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="spa")

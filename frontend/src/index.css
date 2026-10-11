@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/*
+  Design tokens — Okabe–Ito color-blind-safe palette.
+  A (the Guesser)      = amber  #E69F00  (caution)
+  B (the Formula Writer)= teal  #009E8E  (trustworthy)
+  truth                = near-white dashed reference
+  correct              = sky    #56B4E9  (+ ✓ shape redundancy)
+  incorrect            = orange #D55E00  (+ ✕ shape redundancy)
+  Correctness is NEVER encoded by color alone — always paired with an icon/word.
+*/
+@theme {
+  --color-bg: #0f1420;
+  --color-panel: #171d2e;
+  --color-panel-2: #1f2740;
+  --color-border: #2a3350;
+  --color-text: #e8ecf8;
+  --color-muted: #9aa3c7;
+
+  --color-agent-a: #e69f00;
+  --color-agent-a-soft: #e69f0033;
+  --color-agent-b: #009e8e;
+  --color-agent-b-soft: #009e8e33;
+  --color-truth: #eef2ff;
+
+  --color-correct: #56b4e9;
+  --color-incorrect: #d55e00;
+
+  --color-accent: #6ea8fe;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #1b2240 0%, var(--color-bg) 60%);
+  color: var(--color-text);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* Tabular numerals so streaming numbers don't jitter in width. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Respect reduced-motion globally. */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Dot drop-in animation for the scatter view. */
+@keyframes dot-drop {
+  0%   { transform: translate(-50%, -160%) scale(0); opacity: 0; }
+  60%  { transform: translate(-50%, -50%) scale(1.25); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0.95; }
+}
+.animate-dot-drop {
+  animation: dot-drop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
