@@ -491,17 +491,29 @@ repo-root/
 │   ├─ package.json
 │   ├─ components.json             # shadcn/ui config
 │   └─ src/
-│       ├─ main.tsx
-│       ├─ App.tsx
-│       ├─ api/                    # config/questions fetchers, apiBase
-│       ├─ stream/                 # useRunStream, event model, reducer, parseStreamEvent
-│       ├─ state/                  # RunState types + initializers
-│       ├─ components/             # DemoShell, RunControls, RunStatusBar, shared leaves
-│       ├─ views/                  # Scatter/Distribution/Convergence/Mechanism/HumanVsAi/Scorecard
-│       ├─ charts/                 # linearScale, AnswerAxis, SVG primitives
-│       └─ ui/                     # shadcn-generated components (owned source)
+│       ├─ main.tsx                # React root (StrictMode)
+│       ├─ App.tsx                 # DemoShell: header, controls, status, view stage, footer
+│       ├─ index.css               # Tailwind entry + design tokens (dark-first, CVD-safe)
+│       ├─ hooks/
+│       │   └─ useRunStream.ts     # opens the SSE stream; folds events into RunState (reducer)
+│       ├─ lib/
+│       │   ├─ api.ts              # /api/config & /api/questions fetchers, apiBase
+│       │   ├─ types.ts            # SSE event model, RunState, parseStreamEvent (typed boundary)
+│       │   ├─ scale.ts            # linearScale helper powering every SVG chart
+│       │   └─ utils.ts            # cn() + small shared helpers
+│       └─ components/
+│           ├─ ui/                 # shadcn-style components, owned source (button, badge, card,
+│           │                      #   progress, select, tabs)
+│           └─ views/              # Scatter/Convergence/Distribution/Mechanism/HumanVsAi/Scorecard
 └─ frontend-dist/                  # BUILD OUTPUT consumed by FastAPI (§5.3) — gitignore'd
 ```
+
+> **Implementation note.** The grouping above reflects the shipped code. It consolidates the
+> originally-proposed `api/`, `stream/`, `state/`, and `charts/` directories into `lib/`
+> (fetchers, SSE types + `RunState`, the `linearScale` chart helper) and `hooks/`
+> (`useRunStream`). The responsibilities are unchanged — the typed SSE boundary, single
+> streaming hook, and shared scale helper all exist as specified — only the file grouping is
+> flatter. Chart primitives live inline in the views alongside the shared `lib/scale.ts`.
 
 ### 5.3 Build output
 
